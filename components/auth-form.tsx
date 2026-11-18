@@ -1,48 +1,75 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import * as React from "react"
+import Link from "next/link"
+import { BookOpen, Eye, EyeOff, GraduationCap } from "lucide-react"
 
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { authClient } from "@/lib/auth-client"
+import { toast } from "sonner"
 
 /** Use the same classes as the navbar/footer logo so the brand matches. */
-const LOGO_CLASSES = "text-2xl font-bold tracking-tight";
+const LOGO_CLASSES = "text-2xl font-bold tracking-tight"
 
-type Mode = "sign-in" | "sign-up";
+/** All roles that exist in the system. */
+export type UserRole = "student" | "tutor" | "admin"
 
-export type SignInData = { email: string; password: string };
+/** Roles a person may pick for themselves. Admins are never self-registered. */
+export type SignUpRole = Exclude<UserRole, "admin">
+
+export type SignInData = { email: string; password: string }
 export type SignUpData = {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-};
+  name: string
+  email: string
+  password: string
+  confirmPassword: string
+  role: SignUpRole
+}
+
+const ROLE_OPTIONS: {
+  value: SignUpRole
+  label: string
+  description: string
+  icon: React.ComponentType<{ className?: string }>
+}[] = [
+  {
+    value: "student",
+    label: "Student",
+    description: "Find the right tutor and browse tuitions.",
+    icon: GraduationCap,
+  },
+  {
+    value: "tutor",
+    label: "Tutor",
+    description: "Offer tuition and connect with students.",
+    icon: BookOpen,
+  },
+]
 
 type AuthFormProps =
   | {
-      mode: "sign-in";
-      onSubmit?: (data: SignInData) => void | Promise<void>;
-      onGoogle?: () => void | Promise<void>;
+      mode: "sign-in"
+      onSubmit?: (data: SignInData) => void | Promise<void>
+      onGoogle?: () => void | Promise<void>
     }
   | {
-      mode: "sign-up";
-      onSubmit?: (data: SignUpData) => void | Promise<void>;
-      onGoogle?: () => void | Promise<void>;
-    };
+      mode: "sign-up"
+      onSubmit?: (data: SignUpData) => void | Promise<void>
+      onGoogle?: () => void | Promise<void>
+    }
 
 function PasswordInput(props: React.ComponentProps<typeof Input>) {
-  const [show, setShow] = React.useState(false);
+  const [show, setShow] = React.useState(false)
   return (
     <div className="relative">
       <Input {...props} type={show ? "text" : "password"} className="pr-10" />
@@ -50,12 +77,43 @@ function PasswordInput(props: React.ComponentProps<typeof Input>) {
         type="button"
         onClick={() => setShow((s) => !s)}
         aria-label={show ? "Hide password" : "Show password"}
-        className="absolute right-0 top-0 inline-flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="absolute top-0 right-0 inline-flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
     </div>
-  );
+  )
+}
+
+/** Card-style radio group for choosing an account type. */
+function RoleSelector() {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm leading-none font-medium">
+        I want to join as
+      </legend>
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        {ROLE_OPTIONS.map(({ value, label, description, icon: Icon }) => (
+          <label
+            key={value}
+            title={description}
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm font-medium transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+          >
+            <input
+              type="radio"
+              name="role"
+              value={value}
+              defaultChecked={value === "student"}
+              className="sr-only"
+            />
+
+            <Icon className="h-4 w-4" />
+            {label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
 }
 
 /** Official multi-colour Google "G" logo. */
@@ -79,57 +137,85 @@ function GoogleIcon({ className }: { className?: string }) {
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
     </svg>
-  );
+  )
 }
 
 export function AuthForm(props: AuthFormProps) {
-  const isSignUp = props.mode === "sign-up";
-  const [loading, setLoading] = React.useState(false);
+  const isSignUp = props.mode === "sign-up"
+  const [loading, setLoading] = React.useState(false)
 
+  // Google sign-in / sign-up (same flow: Better Auth creates the user if new).
   async function handleGoogle() {
-    setLoading(true);
+    setLoading(true)
     try {
-      await props.onGoogle?.();
+      if (props.onGoogle) {
+        await props.onGoogle()
+        return
+      }
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/", // where to land after Google finishes
+        errorCallbackURL: isSignUp ? "/sign-up" : "/sign-in",
+      })
+      if (error) {
+        toast.error(error.message ?? "Google authentication failed")
+        setLoading(false)
+      }
+      // On success the browser is redirected to Google, so keep `loading`
+      // true to avoid the button flashing back to enabled.
     } catch (err) {
-      console.error("Google auth error:", err);
-    } finally {
-      setLoading(false);
+      console.error("Google auth error:", err)
+      toast.error("Could not connect to Google. Please try again.")
+      setLoading(false)
     }
   }
 
   // Collects the form data and passes it to the parent's `onSubmit`.
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    setLoading(true);
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    setLoading(true)
 
     try {
       if (props.mode === "sign-up") {
+        const rawRole = String(formData.get("role") ?? "")
+        const role: SignUpRole = ROLE_OPTIONS.some((o) => o.value === rawRole)
+          ? (rawRole as SignUpRole)
+          : "student"
+
         const data: SignUpData = {
           name: String(formData.get("name") ?? ""),
           email: String(formData.get("email") ?? ""),
           password: String(formData.get("password") ?? ""),
           confirmPassword: String(formData.get("confirmPassword") ?? ""),
-        };
-        await props.onSubmit?.(data);
+          role,
+        }
+        if (data.password !== data.confirmPassword) {
+          toast.error("Passwords do not match")
+          return
+        }
+        await props.onSubmit?.(data)
       } else {
         const data: SignInData = {
           email: String(formData.get("email") ?? ""),
           password: String(formData.get("password") ?? ""),
-        };
-        await props.onSubmit?.(data);
+        }
+        await props.onSubmit?.(data)
       }
     } catch (err) {
-      console.error("Auth error:", err);
+      console.error("Auth error:", err)
+      toast.error(
+        err instanceof Error ? err.message : "Something went wrong. Try again."
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-6">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
+        <CardHeader className="space-y-3 text-center">
           <Link href="/" className={cn(LOGO_CLASSES, "mx-auto inline-block")}>
             MentorLagbe
           </Link>
@@ -178,7 +264,9 @@ export function AuthForm(props: AuthFormProps) {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {isSignUp && <RoleSelector />}
+
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -240,7 +328,7 @@ export function AuthForm(props: AuthFormProps) {
             </Button>
           </form>
 
-          <div className="relative my-6">
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -262,7 +350,7 @@ export function AuthForm(props: AuthFormProps) {
             {isSignUp ? "Sign up with Google" : "Sign in with Google"}
           </Button>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
             <Link
               href={isSignUp ? "/sign-in" : "/sign-up"}
@@ -274,7 +362,7 @@ export function AuthForm(props: AuthFormProps) {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
 
-export default AuthForm;
+export default AuthForm

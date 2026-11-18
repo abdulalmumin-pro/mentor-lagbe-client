@@ -84,19 +84,23 @@ export function Hero() {
             variants={item}
             className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
-            <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link href="/tuitions">
-                Browse Tuitions
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+            <Button
+              render={<Link href="/tuitions" />}
+              nativeButton={false}
+              size="lg"
+              className="w-full sm:w-auto"
+            >
+              Browse Tuitions
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button
-              asChild
+              render={<Link href="/pricing" />}
+              nativeButton={false}
               size="lg"
               variant="outline"
               className="w-full sm:w-auto"
             >
-              <Link href="/pricing">View Pricing</Link>
+              View Pricing
             </Button>
           </motion.div>
 

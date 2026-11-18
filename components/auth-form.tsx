@@ -29,6 +29,18 @@ export type SignUpData = {
   confirmPassword: string;
 };
 
+type AuthFormProps =
+  | {
+      mode: "sign-in";
+      onSubmit?: (data: SignInData) => void | Promise<void>;
+      onGoogle?: () => void | Promise<void>;
+    }
+  | {
+      mode: "sign-up";
+      onSubmit?: (data: SignUpData) => void | Promise<void>;
+      onGoogle?: () => void | Promise<void>;
+    };
+
 function PasswordInput(props: React.ComponentProps<typeof Input>) {
   const [show, setShow] = React.useState(false);
   return (
@@ -70,36 +82,47 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-export function AuthForm({ mode }: { mode: Mode }) {
-  const isSignUp = mode === "sign-up";
+export function AuthForm(props: AuthFormProps) {
+  const isSignUp = props.mode === "sign-up";
+  const [loading, setLoading] = React.useState(false);
 
-  // Placeholder: connect your Google OAuth flow here later.
-  function handleGoogle() {
-    console.log(`Google ${isSignUp ? "sign-up" : "sign-in"} clicked`);
-    // TODO: start Google sign-in (e.g. signIn("google") or supabase.auth.signInWithOAuth)
+  async function handleGoogle() {
+    setLoading(true);
+    try {
+      await props.onGoogle?.();
+    } catch (err) {
+      console.error("Google auth error:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  // Only collects the form data for now. Connect your real auth logic here later.
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // Collects the form data and passes it to the parent's `onSubmit`.
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setLoading(true);
 
-    if (isSignUp) {
-      const data: SignUpData = {
-        name: String(formData.get("name") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-        confirmPassword: String(formData.get("confirmPassword") ?? ""),
-      };
-      console.log("Sign-up data:", data);
-      // TODO: call your sign-up API / auth function with `data`
-    } else {
-      const data: SignInData = {
-        email: String(formData.get("email") ?? ""),
-        password: String(formData.get("password") ?? ""),
-      };
-      console.log("Sign-in data:", data);
-      // TODO: call your sign-in API / auth function with `data`
+    try {
+      if (props.mode === "sign-up") {
+        const data: SignUpData = {
+          name: String(formData.get("name") ?? ""),
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+          confirmPassword: String(formData.get("confirmPassword") ?? ""),
+        };
+        await props.onSubmit?.(data);
+      } else {
+        const data: SignInData = {
+          email: String(formData.get("email") ?? ""),
+          password: String(formData.get("password") ?? ""),
+        };
+        await props.onSubmit?.(data);
+      }
+    } catch (err) {
+      console.error("Auth error:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -208,8 +231,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
               </div>
             )}
 
-            <Button type="submit" className="w-full">
-              {isSignUp ? "Create account" : "Sign in"}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading
+                ? "Please wait..."
+                : isSignUp
+                  ? "Create account"
+                  : "Sign in"}
             </Button>
           </form>
 
@@ -229,6 +256,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             variant="outline"
             className="w-full"
             onClick={handleGoogle}
+            disabled={loading}
           >
             <GoogleIcon className="mr-2 h-4 w-4" />
             {isSignUp ? "Sign up with Google" : "Sign in with Google"}

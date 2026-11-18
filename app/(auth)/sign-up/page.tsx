@@ -1,11 +1,18 @@
-import type { Metadata } from "next";
+'use client';
 
-import { AuthForm } from "@/components/auth-form";
+import { AuthForm, SignUpData } from "@/components/auth-form"
+import { authClient } from "@/lib/auth-client"
 
-export const metadata: Metadata = {
-  title: "Sign Up | MentorLagbe",
-};
 
 export default function SignUpPage() {
-  return <AuthForm mode="sign-up" />;
+  const handleSignUp = async ( data: SignUpData ) => {
+    const { data: res, error } = await authClient.signUp.email({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      callbackURL: "/",
+    })
+    console.log('signUp responsive', res, error);
+  }
+  return <AuthForm mode="sign-up" onSubmit={handleSignUp} />
 }

@@ -80,6 +80,17 @@ export function Navbar() {
           </NavigationMenuList>
         </NavigationMenu>
 
+        <div className="flex items-center gap-2">
+        {/* Desktop auth buttons */}
+        <div className="hidden items-center gap-2 md:flex">
+          <Button asChild variant="ghost">
+            <Link href="/sign-in">Sign In</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/sign-up">Sign Up</Link>
+          </Button>
+        </div>
+
         {/* Mobile navigation */}
         <Sheet>
           <SheetTrigger asChild>
@@ -116,8 +127,21 @@ export function Navbar() {
                 </SheetClose>
               ))}
             </nav>
+            <div className="mt-6 flex flex-col gap-2 border-t px-4 pt-6">
+              <SheetClose asChild>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/sign-in">Sign In</Link>
+                </Button>
+              </SheetClose>
+              <SheetClose asChild>
+                <Button asChild className="w-full">
+                  <Link href="/sign-up">Sign Up</Link>
+                </Button>
+              </SheetClose>
+            </div>
           </SheetContent>
         </Sheet>
+        </div>
       </div>
     </header>
   );

@@ -1,31 +1,254 @@
+"use client";
+
+import type { LucideIcon } from "lucide-react";
+import {
+  Bookmark,
+  BookOpen,
+  ClipboardList,
+  CreditCard,
+  FilePlus,
+  GraduationCap,
+  LayoutDashboard,
+  Settings,
+  ShieldCheck,
+  UserCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-} from "@/components/ui/sidebar"
-import { Plus } from "lucide-react"
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import { useSession } from "@/lib/auth-client";
+
+type MenuItem = {
+  id: string;
+  name: string;
+  url: string;
+  icon: LucideIcon;
+};
+
+type UserRole = "student" | "tutor" | "admin";
+
+/** Per-role "MAIN MENU" entries (matches the dashboard mockups). */
+const menuItemsByRole: Record<UserRole, MenuItem[]> = {
+  student: [
+    {
+      id: "student-overview",
+      name: "Overview",
+      url: "/dashboard/student",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "my-applications",
+      name: "My Applications",
+      url: "/dashboard/student/my-applications",
+      icon: ClipboardList,
+    },
+    {
+      id: "saved-tuitions",
+      name: "Saved Tuitions",
+      url: "/dashboard/student/saved-tuitions",
+      icon: Bookmark,
+    },
+  ],
+  tutor: [
+    {
+      id: "tutor-overview",
+      name: "Overview",
+      url: "/dashboard/tutor",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "post-tuition",
+      name: "Post Tuition",
+      url: "/dashboard/tutor/post-tuition",
+      icon: FilePlus,
+    },
+    {
+      id: "my-tuitions",
+      name: "My Tuitions",
+      url: "/dashboard/tutor/my-tuitions",
+      icon: BookOpen,
+    },
+    {
+      id: "applicants",
+      name: "Applicants",
+      url: "/dashboard/tutor/applicants",
+      icon: UserCheck,
+    },
+  ],
+  admin: [
+    {
+      id: "admin-overview",
+      name: "Overview",
+      url: "/dashboard/admin",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "admin-users",
+      name: "Users",
+      url: "/dashboard/admin/users",
+      icon: Users,
+    },
+    {
+      id: "admin-tuitions",
+      name: "Tuitions",
+      url: "/dashboard/admin/tuitions",
+      icon: BookOpen,
+    },
+    {
+      id: "admin-transactions",
+      name: "Transactions",
+      url: "/dashboard/admin/transactions",
+      icon: CreditCard,
+    },
+  ],
+};
+
+/** "PREFERENCES" entries — identical for every role. */
+const preferenceItems: MenuItem[] = [
+  {
+    id: "profile",
+    name: "Update Profile",
+    url: "/dashboard/profile",
+    icon: Settings,
+  },
+];
+
+/** Role chip shown under the user's name. */
+const ROLE_META: Record<UserRole, { label: string; icon: LucideIcon }> = {
+  student: { label: "Student", icon: GraduationCap },
+  tutor: { label: "Tutor", icon: UserRound },
+  admin: { label: "Admin", icon: ShieldCheck },
+};
+
+/** "Karan Rahman" → "KR", "abc@gmail.com" → "AB". */
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+/** Stable colour derived from the name so every user keeps the same avatar. */
+function avatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % 360;
+  }
+  return `hsl(${hash} 55% 42%)`;
+}
+
+function MenuList({ items, pathname }: { items: MenuItem[]; pathname: string }) {
+  return (
+    <SidebarMenu>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.id}>
+          <SidebarMenuButton
+            render={<Link href={item.url} />}
+            isActive={pathname === item.url}
+            className="data-active:bg-primary/10! data-active:text-primary!"
+          >
+            <item.icon />
+            <span>{item.name}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
+}
 
 export function DashboardSidebar() {
+  const { data: session } = useSession();
+  const pathname = usePathname().replace(/\/$/, "");
+
+  const user = session?.user;
+  const role = (user?.role ?? "student") as UserRole;
+  const menuItems = menuItemsByRole[role] ?? menuItemsByRole.student;
+  const meta = ROLE_META[role] ?? ROLE_META.student;
+  const RoleIcon = meta.icon;
+
+  const displayName = user?.name || user?.email || "User";
+  const isPro = (user as { plan?: string } | undefined)?.plan === "pro";
+
   return (
     <Sidebar>
-      <SidebarHeader />
+      <SidebarHeader className="gap-3 px-4 py-4">
+        {/* Brand */}
+        <Link href="/" className="flex items-center gap-2 px-1">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+            ML
+          </span>
+          <span className="text-lg font-bold tracking-tight">MentorLagbe</span>
+        </Link>
+
+        {/* Signed-in user: avatar, name, plan badge, role chip */}
+        <div className="flex items-center gap-2.5 px-1">
+          <span
+            aria-hidden="true"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: avatarColor(displayName) }}
+          >
+            {getInitials(displayName)}
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm leading-tight font-semibold">
+                {displayName}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-bold",
+                  isPro
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {isPro ? "PRO" : "FREE"}
+              </span>
+            </div>
+            <span className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <RoleIcon className="size-3" />
+              {meta.label}
+            </span>
+          </div>
+        </div>
+      </SidebarHeader>
+
       <SidebarContent>
-        <SidebarGroup />
-        <SidebarGroup />
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupAction>
-            <Plus /> <span className="sr-only">Add Project</span>
-          </SidebarGroupAction>
-          <SidebarGroupContent></SidebarGroupContent>
+          <SidebarGroupLabel className="px-4 text-[11px] tracking-wider text-muted-foreground uppercase">
+            Main Menu
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <MenuList items={menuItems} pathname={pathname} />
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-4 text-[11px] tracking-wider text-muted-foreground uppercase">
+            Preferences
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <MenuList items={preferenceItems} pathname={pathname} />
+          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter />
     </Sidebar>
-  )
+  );
 }

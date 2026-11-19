@@ -25,6 +25,41 @@ export const auth = betterAuth({
           },
         ],
       },
+      plan: {
+        type: "string",
+        required: true,
+        defaultValue: "free",
+        /** Only the server (Stripe webhook / checkout) upgrades a plan. */
+        input: false,
+        validators: [
+          {
+            validate: (value: unknown) =>
+              ["free", "pro"].includes(value as string),
+            message: "Plan must be free or pro",
+          },
+        ],
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        /**
+         * Google OAuth can't carry form fields across the redirect, so the
+         * sign-up page stores the picked role in a short-lived cookie first.
+         * We only trust it for the OAuth callback — email/password signups
+         * already send `role` in the request body.
+         */
+        before: async (_user, ctx) => {
+          const cookie = ctx?.request?.headers.get("cookie") ?? "";
+          const match = cookie.match(
+            /(?:^|;\s*)ml_signup_role=(student|tutor|admin)(?:;|$)/
+          );
+          if (match && ctx?.path?.includes("callback")) {
+            return { data: { role: match[1] } };
+          }
+        },
+      },
     },
   },
   socialProviders: {

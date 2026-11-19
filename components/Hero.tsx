@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { ArrowRight, GraduationCap, ShieldCheck, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,11 @@ export function Hero() {
   const reduce = useReducedMotion();
 
   // Staggered fade-up animation; disabled if the user prefers reduced motion.
-  const container = {
+  const container: Variants = {
     hidden: {},
     show: { transition: { staggerChildren: reduce ? 0 : 0.12 } },
   };
-  const item = {
+  const item: Variants = {
     hidden: { opacity: reduce ? 1 : 0, y: reduce ? 0 : 24 },
     show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
   };

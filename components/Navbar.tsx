@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu } from "lucide-react"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,12 +25,6 @@ import {
 } from "@/components/ui/navigation-menu"
 import { useSession, signOut } from "@/lib/auth-client"
 
-const navItems = [
-  { label: "Home", href: "/" },
-  { label: "Browse Tuitions", href: "/tuitions" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "About", href: "/about" },
-]
 
 /**
  * IMPORTANT: replace LOGO_CLASSES with the exact classes used for the
@@ -46,13 +41,27 @@ const LOGO_CLASSES = "text-2xl font-bold tracking-tight"
 export function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  console.log("user session in navbar", session)
+
+  const navItems = [
+  { label: "Home", href: "/" },
+  { label: "Browse Tuitions", href: "/tuitions" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "About", href: "/about" },
+  { label: "Dashboard", href: `/dashboard/${session?.user.role || 'student'}` },
+]
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href)
 
   const handleSignOut = async () => {
-    await signOut();
+    const { error } = await signOut()
+
+    if (error) {
+      toast.error(error.message || "Failed to sign out. Please try again.")
+      return
+    }
+
+    toast.success("Signed out successfully")
   }
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

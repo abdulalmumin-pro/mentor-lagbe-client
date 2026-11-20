@@ -3,11 +3,18 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu } from "lucide-react"
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Settings } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Sheet,
   SheetClose,
@@ -24,7 +31,9 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { useSession, signOut } from "@/lib/auth-client"
-
+import { UserAvatar } from "@/components/user-avatar"
+import { RoleBadge } from "@/components/role-badge"
+import type { UserRole } from "@/lib/roles"
 
 /**
  * IMPORTANT: replace LOGO_CLASSES with the exact classes used for the
@@ -42,13 +51,17 @@ export function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
 
+  const role = (session?.user.role ?? "student") as UserRole
+  const displayName = session?.user.name || session?.user.email || "User"
+  const email = session?.user.email
+  const dashboardHref = `/dashboard/${role}`
+
   const navItems = [
-  { label: "Home", href: "/" },
-  { label: "Browse Tuitions", href: "/tuitions" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "About", href: "/about" },
-  { label: "Dashboard", href: `/dashboard/${session?.user.role || 'student'}` },
-]
+    { label: "Home", href: "/" },
+    { label: "Browse Tuitions", href: "/tuitions" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "About", href: "/about" },
+  ]
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href)
@@ -72,7 +85,7 @@ export function Navbar() {
         </Link>
 
         {/* Desktop navigation */}
-        <NavigationMenu className="hidden md:flex">
+        <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList>
             {navItems.map((item) => (
               <NavigationMenuItem key={item.href}>
@@ -96,18 +109,63 @@ export function Navbar() {
         </NavigationMenu>
 
         <div className="flex items-center gap-2">
-          {/* Desktop auth buttons */}
-          <div className="hidden items-center gap-2 md:flex">
+          {/* Desktop auth */}
+          <div className="hidden items-center gap-2 lg:flex">
             {session?.user ? (
-              <>
-                <span className="text-white">Welcome {session.user.name}</span>
-                <Button
-                  onClick={handleSignOut}
-                  nativeButton={false}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="h-auto gap-2 rounded-full py-1 pr-2 pl-1"
+                      aria-label="Open user menu"
+                    />
+                  }
                 >
-                  Sign Out
-                </Button>
-              </>
+                  <UserAvatar
+                    name={displayName}
+                    image={session.user.image}
+                    className="size-9"
+                  />
+                  <span className="hidden max-w-32 truncate text-sm font-semibold xl:inline">
+                    {displayName}
+                  </span>
+                  <ChevronDown className="size-4 text-muted-foreground" />
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-64">
+                  {/* Header: name, email, role badge */}
+                  <div className="flex flex-col gap-1 px-2 py-2">
+                    <p className="truncate text-sm font-semibold">
+                      {displayName}
+                    </p>
+                    {email && email !== displayName && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {email}
+                      </p>
+                    )}
+                    <RoleBadge role={role} className="mt-1" />
+                  </div>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem render={<Link href={dashboardHref} />}>
+                    <LayoutDashboard />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/dashboard/profile" />}>
+                    <Settings />
+                    Update Profile
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
+                    <LogOut />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Button
@@ -131,7 +189,7 @@ export function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className="lg:hidden"
                   aria-label="Open menu"
                 />
               }
@@ -169,29 +227,90 @@ export function Navbar() {
                 ))}
               </nav>
               <div className="mt-6 flex flex-col gap-2 border-t px-4 pt-6">
-                <SheetClose
-                  render={
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      render={<Link href="/sign-in" />}
-                      nativeButton={false}
-                    />
-                  }
-                >
-                  Sign In
-                </SheetClose>
-                <SheetClose
-                  render={
-                    <Button
-                      className="w-full"
-                      render={<Link href="/sign-up" />}
-                      nativeButton={false}
-                    />
-                  }
-                >
-                  Sign Up
-                </SheetClose>
+                {session?.user ? (
+                  <>
+                    {/* Avatar + name + role badge */}
+                    <div className="mb-2 flex items-center gap-3 px-1">
+                      <UserAvatar
+                        name={displayName}
+                        image={session.user.image}
+                        className="size-10 text-sm"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {displayName}
+                        </p>
+                        <RoleBadge role={role} className="mt-1" />
+                      </div>
+                    </div>
+
+                    <SheetClose
+                      render={
+                        <Button
+                          variant="ghost"
+                          className="justify-start"
+                          render={<Link href={dashboardHref} />}
+                          nativeButton={false}
+                        />
+                      }
+                    >
+                      <LayoutDashboard />
+                      Dashboard
+                    </SheetClose>
+                    <SheetClose
+                      render={
+                        <Button
+                          variant="ghost"
+                          className="justify-start"
+                          render={<Link href="/dashboard/profile" />}
+                          nativeButton={false}
+                        />
+                      }
+                    >
+                      <Settings />
+                      Update Profile
+                    </SheetClose>
+                    <SheetClose
+                      render={
+                        <Button
+                          variant="ghost"
+                          className="justify-start text-destructive hover:text-destructive"
+                          onClick={handleSignOut}
+                          nativeButton={false}
+                        />
+                      }
+                    >
+                      <LogOut />
+                      Sign Out
+                    </SheetClose>
+                  </>
+                ) : (
+                  <>
+                    <SheetClose
+                      render={
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          render={<Link href="/sign-in" />}
+                          nativeButton={false}
+                        />
+                      }
+                    >
+                      Sign In
+                    </SheetClose>
+                    <SheetClose
+                      render={
+                        <Button
+                          className="w-full"
+                          render={<Link href="/sign-up" />}
+                          nativeButton={false}
+                        />
+                      }
+                    >
+                      Sign Up
+                    </SheetClose>
+                  </>
+                )}
               </div>
             </SheetContent>
           </Sheet>

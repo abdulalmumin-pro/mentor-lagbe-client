@@ -24,4 +24,4 @@ export const authClient = createAuthClient({
   plugins: [userFieldsInference],
 })
 
-export const { signIn, signUp, signOut, useSession } = authClient
+export const { signIn, signUp, signOut, useSession, updateUser } = authClient

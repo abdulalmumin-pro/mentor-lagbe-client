@@ -1,15 +1,28 @@
 import { betterAuth } from "better-auth"
 import { MongoClient } from "mongodb"
 import { mongodbAdapter } from "@better-auth/mongo-adapter"
+
 const client = new MongoClient(process.env.BETTER_AUTH_DB_URI as string)
 const db = client.db("mentor-lagbe-db")
 
 export const auth = betterAuth({
-  //...
   baseURL: process.env.BETTER_AUTH_URL,
+
+  database: mongodbAdapter(db, {
+    client,
+  }),
+
   emailAndPassword: {
     enabled: true,
   },
+
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+  },
+
   user: {
     additionalFields: {
       role: {
@@ -39,8 +52,18 @@ export const auth = betterAuth({
           },
         ],
       },
+      /** Editable from /dashboard/profile. */
+      phone: {
+        type: "string",
+        required: false,
+      },
+      bio: {
+        type: "string",
+        required: false,
+      },
     },
   },
+
   databaseHooks: {
     user: {
       create: {
@@ -51,24 +74,22 @@ export const auth = betterAuth({
          * already send `role` in the request body.
          */
         before: async (_user, ctx) => {
-          const cookie = ctx?.request?.headers.get("cookie") ?? "";
+          const cookie = ctx?.request?.headers.get("cookie") ?? ""
           const match = cookie.match(
             /(?:^|;\s*)ml_signup_role=(student|tutor|admin)(?:;|$)/
-          );
+          )
           if (match && ctx?.path?.includes("callback")) {
-            return { data: { role: match[1] } };
+            return { data: { role: match[1] } }
           }
+        },
+      },
+
+      update: {
+        /** Users can never change their own role after sign-up. */
+        before: async (data) => {
+          if ("role" in data) return false
         },
       },
     },
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-  },
-  database: mongodbAdapter(db, {
-    client,
-  }),
 })

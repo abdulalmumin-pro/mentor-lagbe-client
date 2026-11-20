@@ -6,7 +6,7 @@
 
 MentorLagbe (মেন্টর লাগবে) makes finding tuition easy and trustworthy. Students discover and apply to admin-approved tuition posts, tutors advertise their services, and admins keep the platform safe — all in one place with role-based dashboards.
 
-## 🔗 Live URL
+## 🔗 Live URL https://mentor-lagbe-client-gray.vercel.app
 
 ```text
 

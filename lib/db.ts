@@ -81,12 +81,21 @@ export async function applications(): Promise<Collection<Application>> {
   return (await getDb()).collection<Application>("applications")
 }
 
+/** Better Auth's account collection (`usePlural: false` → "user"). */
+export async function users(): Promise<Collection<AppUser>> {
+  return (await getDb()).collection<AppUser>("user")
+}
+
+export async function payments(): Promise<Collection<Payment>> {
+  return (await getDb()).collection<Payment>("payments")
+}
+
 /**
  * Tutor contact details live in Better Auth's `user` collection (Mongo adapter
  * stores `_id` as an ObjectId, `usePlural: false`). Used to enrich applications
  * with the tutor's name/email without an extra auth API call.
  */
-export type UserContact = { name?: string; email?: string }
+export type UserContact = { name?: string; email?: string; role?: string }
 
 export async function findUserContacts(
   ids: string[]
@@ -95,18 +104,16 @@ export async function findUserContacts(
   const map = new Map<string, UserContact>()
   if (unique.length === 0) return map
 
-  const users = (await getDb()).collection<{
-    _id: ObjectId
-    name?: string
-    email?: string
-  }>("user")
-
-  const docs = await users
+  const docs = await (await users())
     .find({ _id: { $in: unique.map((id) => new ObjectId(id)) } })
     .toArray()
 
   for (const doc of docs) {
-    map.set(doc._id.toHexString(), { name: doc.name, email: doc.email })
+    map.set(doc._id.toHexString(), {
+      name: doc.name,
+      email: doc.email,
+      role: doc.role,
+    })
   }
   return map
 }
@@ -116,6 +123,36 @@ export type TuitionDoc = Tuition & { _id: string }
 
 /** Application as returned by the API (`_id` is a string). */
 export type ApplicationDoc = Application & { _id: string }
+
+/** A registered account (Better Auth `user` collection). */
+export type AppUser = {
+  name?: string
+  email: string
+  role?: string
+  plan?: string
+  image?: string | null
+  createdAt?: Date
+}
+
+export type AppUserDoc = AppUser & { _id: string }
+
+/** A Stripe subscription payment record (written by the Stripe webhook). */
+export type Payment = {
+  userId: string
+  userName?: string
+  userEmail?: string
+  userRole?: string
+  planName: string
+  /** Amount in major currency units (e.g. 9.99). */
+  amount: number
+  currency?: string
+  transactionId: string
+  status?: "succeeded" | "pending" | "failed"
+  paymentDate: Date
+  createdAt?: Date
+}
+
+export type PaymentDoc = Payment & { _id: string }
 
 /** Mongo `_id` (ObjectId) → JSON-safe string. */
 export function serializeDoc<T extends { _id?: unknown }>(

@@ -2,19 +2,12 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { ChevronDown, LayoutDashboard, LogOut, Menu, Settings } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { LayoutDashboard, LogOut, Menu, Settings } from "lucide-react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Sheet,
   SheetClose,
@@ -33,6 +26,8 @@ import {
 import { useSession, signOut } from "@/lib/auth-client"
 import { UserAvatar } from "@/components/user-avatar"
 import { RoleBadge } from "@/components/role-badge"
+import { UserMenu } from "@/components/user-menu"
+import { ThemeToggle } from "@/components/theme-toggle"
 import type { UserRole } from "@/lib/roles"
 
 /**
@@ -49,11 +44,11 @@ const LOGO_CLASSES = "text-2xl font-bold tracking-tight"
 
 export function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: session } = useSession()
 
   const role = (session?.user.role ?? "student") as UserRole
   const displayName = session?.user.name || session?.user.email || "User"
-  const email = session?.user.email
   const dashboardHref = `/dashboard/${role}`
 
   const navItems = [
@@ -75,6 +70,7 @@ export function Navbar() {
     }
 
     toast.success("Signed out successfully")
+    router.push("/")
   }
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -109,63 +105,12 @@ export function Navbar() {
         </NavigationMenu>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
+
           {/* Desktop auth */}
           <div className="hidden items-center gap-2 lg:flex">
             {session?.user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      className="h-auto gap-2 rounded-full py-1 pr-2 pl-1"
-                      aria-label="Open user menu"
-                    />
-                  }
-                >
-                  <UserAvatar
-                    name={displayName}
-                    image={session.user.image}
-                    className="size-9"
-                  />
-                  <span className="hidden max-w-32 truncate text-sm font-semibold xl:inline">
-                    {displayName}
-                  </span>
-                  <ChevronDown className="size-4 text-muted-foreground" />
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent align="end" className="w-64">
-                  {/* Header: name, email, role badge */}
-                  <div className="flex flex-col gap-1 px-2 py-2">
-                    <p className="truncate text-sm font-semibold">
-                      {displayName}
-                    </p>
-                    {email && email !== displayName && (
-                      <p className="truncate text-xs text-muted-foreground">
-                        {email}
-                      </p>
-                    )}
-                    <RoleBadge role={role} className="mt-1" />
-                  </div>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem render={<Link href={dashboardHref} />}>
-                    <LayoutDashboard />
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem render={<Link href="/dashboard/profile" />}>
-                    <Settings />
-                    Update Profile
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
-                    <LogOut />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <UserMenu />
             ) : (
               <>
                 <Button

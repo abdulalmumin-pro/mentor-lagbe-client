@@ -8,12 +8,14 @@ import {
   CreditCard,
   FilePlus,
   LayoutDashboard,
+  LogOut,
   Settings,
   UserCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/roles";
@@ -31,7 +33,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useSession } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client";
 
 type MenuItem = {
   id: string;
@@ -148,6 +150,7 @@ function MenuList({ items, pathname }: { items: MenuItem[]; pathname: string }) 
 export function DashboardSidebar() {
   const { data: session } = useSession();
   const pathname = usePathname().replace(/\/$/, "");
+  const router = useRouter();
 
   const user = session?.user;
   const role = (user?.role ?? "student") as UserRole;
@@ -155,6 +158,16 @@ export function DashboardSidebar() {
 
   const displayName = user?.name || user?.email || "User";
   const isPro = (user as { plan?: string } | undefined)?.plan === "pro";
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error(error.message || "Failed to sign out. Please try again.");
+      return;
+    }
+    toast.success("Signed out successfully");
+    router.push("/");
+  };
 
   return (
     <Sidebar>
@@ -215,7 +228,19 @@ export function DashboardSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter />
+      <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={handleSignOut}
+              className="text-destructive hover:text-destructive"
+            >
+              <LogOut />
+              <span>Sign Out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

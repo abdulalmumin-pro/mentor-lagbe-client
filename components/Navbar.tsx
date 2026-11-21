@@ -58,7 +58,7 @@ export function Navbar() {
 
   const navItems = [
     { label: "Home", href: "/" },
-    { label: "Browse Tuitions", href: "/tuitions" },
+    { label: "Browse Tuitions", href: "/browse-tutions" },
     { label: "Pricing", href: "/pricing" },
     { label: "About", href: "/about" },
   ]

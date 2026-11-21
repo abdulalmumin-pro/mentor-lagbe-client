@@ -1,0 +1,125 @@
+import { MongoClient, ObjectId, type Collection, type Db } from "mongodb"
+
+const DB_NAME = "mentor-lagbe-db"
+
+export type ApprovalStatus = "pending" | "approved" | "rejected"
+export type TuitionStatus = "active" | "closed"
+export type ApplicationStatus = "pending" | "accepted" | "rejected"
+export type TuitionMode = "Online" | "Offline" | "Both"
+
+/** A tuition post created by a tutor. */
+export type Tuition = {
+  tutorId: string
+  tutorName?: string
+  tutorEmail?: string
+  title: string
+  subject: string
+  classLevel: string
+  mode: TuitionMode
+  location: string
+  monthlyFee: number
+  daysPerWeek: number
+  description: string
+  bannerImage?: string | null
+  /** Set by the admin approval flow. */
+  approvalStatus: ApprovalStatus
+  /** Tutor can open/close a post. */
+  status: TuitionStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+/** A student's application to a tuition post. */
+export type Application = {
+  tuitionId: string
+  tuitionTitle: string
+  tutorId: string
+  /** Snapshotted when the student applies (used by the student dashboard). */
+  tutorName?: string
+  tutorEmail?: string
+  monthlyFee?: number
+  studentId: string
+  studentName: string
+  studentEmail: string
+  studentPhone?: string
+  preferredSchedule: string
+  note?: string
+  status: ApplicationStatus
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
+ * Reuse one Mongo connection across hot reloads in development.
+ * `lib/auth.ts` opens its own client for Better Auth; this one is for the
+ * app's own collections (tuitions, applications).
+ */
+declare global {
+  var __mlMongoClientPromise: Promise<MongoClient> | undefined
+}
+
+function getClient(): Promise<MongoClient> {
+  const uri = process.env.BETTER_AUTH_DB_URI
+  if (!uri) throw new Error("BETTER_AUTH_DB_URI is not set")
+
+  if (!globalThis.__mlMongoClientPromise) {
+    globalThis.__mlMongoClientPromise = new MongoClient(uri).connect()
+  }
+  return globalThis.__mlMongoClientPromise
+}
+
+export async function getDb(): Promise<Db> {
+  const client = await getClient()
+  return client.db(DB_NAME)
+}
+
+export async function tuitions(): Promise<Collection<Tuition>> {
+  return (await getDb()).collection<Tuition>("tuitions")
+}
+
+export async function applications(): Promise<Collection<Application>> {
+  return (await getDb()).collection<Application>("applications")
+}
+
+/**
+ * Tutor contact details live in Better Auth's `user` collection (Mongo adapter
+ * stores `_id` as an ObjectId, `usePlural: false`). Used to enrich applications
+ * with the tutor's name/email without an extra auth API call.
+ */
+export type UserContact = { name?: string; email?: string }
+
+export async function findUserContacts(
+  ids: string[]
+): Promise<Map<string, UserContact>> {
+  const unique = [...new Set(ids)].filter((id) => ObjectId.isValid(id))
+  const map = new Map<string, UserContact>()
+  if (unique.length === 0) return map
+
+  const users = (await getDb()).collection<{
+    _id: ObjectId
+    name?: string
+    email?: string
+  }>("user")
+
+  const docs = await users
+    .find({ _id: { $in: unique.map((id) => new ObjectId(id)) } })
+    .toArray()
+
+  for (const doc of docs) {
+    map.set(doc._id.toHexString(), { name: doc.name, email: doc.email })
+  }
+  return map
+}
+
+/** Tuition as returned by the API (`_id` is a string). */
+export type TuitionDoc = Tuition & { _id: string }
+
+/** Application as returned by the API (`_id` is a string). */
+export type ApplicationDoc = Application & { _id: string }
+
+/** Mongo `_id` (ObjectId) → JSON-safe string. */
+export function serializeDoc<T extends { _id?: unknown }>(
+  doc: T
+): T & { _id: string } {
+  return { ...doc, _id: String(doc._id) } as T & { _id: string }
+}

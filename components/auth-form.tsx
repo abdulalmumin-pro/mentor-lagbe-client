@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { BookOpen, Eye, EyeOff, GraduationCap, ShieldCheck } from "lucide-react"
+import { BookOpen, Eye, EyeOff, GraduationCap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,8 +24,11 @@ const LOGO_CLASSES = "text-2xl font-bold tracking-tight"
 /** All roles that exist in the system. */
 export type UserRole = "student" | "tutor" | "admin"
 
-/** Roles a person may pick for themselves at sign-up (admin included). */
-export type SignUpRole = UserRole
+/**
+ * Roles a person may pick for themselves at sign-up.
+ * Admin is NOT self-selectable; admins are created manually on the server.
+ */
+export type SignUpRole = Exclude<UserRole, "admin">
 
 export type SignInData = { email: string; password: string }
 export type SignUpData = {
@@ -53,12 +56,6 @@ const ROLE_OPTIONS: {
     label: "Tutor",
     description: "Offer tuition and connect with students.",
     icon: BookOpen,
-  },
-  {
-    value: "admin",
-    label: "Admin",
-    description: "Manage users, tuitions and payments.",
-    icon: ShieldCheck,
   },
 ]
 
@@ -98,7 +95,7 @@ function RoleSelector() {
       <legend className="text-sm leading-none font-medium">
         I want to join as
       </legend>
-      <div className="grid grid-cols-3 gap-2 pt-1">
+      <div className="grid grid-cols-2 gap-2 pt-1">
         {ROLE_OPTIONS.map(({ value, label, description, icon: Icon }) => (
           <label
             key={value}
@@ -158,10 +155,12 @@ export function AuthForm(props: AuthFormProps) {
         // The OAuth redirect can't carry form fields, so stash the picked
         // role in a cookie; the server reads it back in its
         // `user.create.before` hook when Google creates the account.
+        // The server re-validates it (student/tutor only), so this is just
+        // a convenience, never a source of trust.
         const picked = document.querySelector<HTMLInputElement>(
           'input[name="role"]:checked'
         )?.value
-        if (picked === "student" || picked === "tutor" || picked === "admin") {
+        if (picked === "student" || picked === "tutor") {
           document.cookie = `ml_signup_role=${picked}; path=/; max-age=600; SameSite=Lax`
         }
       } else {

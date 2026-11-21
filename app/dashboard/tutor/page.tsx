@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   BookOpen,
   CheckCircle2,
+  Compass,
   FilePlus,
   Sparkles,
   UserCheck,
@@ -30,6 +31,7 @@ export default function TutorOverviewPage() {
 
   const [tuitions, setTuitions] = React.useState<TuitionDoc[]>([])
   const [applications, setApplications] = React.useState<ApplicationDoc[]>([])
+  const [approved, setApproved] = React.useState<TuitionDoc[]>([])
   const [loading, setLoading] = React.useState(true)
 
   const isPro = session?.user.plan === "pro"
@@ -39,18 +41,21 @@ export default function TutorOverviewPage() {
 
     async function load() {
       try {
-        const [tuitionsRes, applicationsRes] = await Promise.all([
+        const [tuitionsRes, applicationsRes, approvedRes] = await Promise.all([
           fetch("/api/tuitions"),
           fetch("/api/applications"),
+          fetch("/api/tuitions?scope=approved"),
         ])
         if (!tuitionsRes.ok || !applicationsRes.ok) {
           throw new Error("Could not load your dashboard.")
         }
         const tuitionsJson = await tuitionsRes.json()
         const applicationsJson = await applicationsRes.json()
+        const approvedJson = approvedRes.ok ? await approvedRes.json() : null
         if (cancelled) return
         setTuitions(tuitionsJson.tuitions ?? [])
         setApplications(applicationsJson.applications ?? [])
+        setApproved(approvedJson?.tuitions ?? [])
       } catch (err) {
         if (!cancelled) {
           toast.error(err instanceof Error ? err.message : "Something went wrong.")
@@ -207,6 +212,15 @@ export default function TutorOverviewPage() {
             <Button
               variant="outline"
               className="justify-start"
+              render={<Link href="/browse-tuitions" />}
+              nativeButton={false}
+            >
+              <Compass />
+              Browse approved tuitions
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start"
               render={<Link href="/dashboard/tutor/applicants" />}
               nativeButton={false}
             >
@@ -227,6 +241,62 @@ export default function TutorOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Marketplace: every approved + active tuition (not just this tutor's) */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <CardTitle>Approved tuitions on the platform</CardTitle>
+              <CardDescription>
+                Live listings students can apply to right now.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/browse-tuitions" />}
+              nativeButton={false}
+            >
+              <Compass />
+              View all
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : approved.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No approved tuitions yet. Posts appear here once an admin approves
+              them.
+            </p>
+          ) : (
+            approved.slice(0, 5).map((tuition) => (
+              <div
+                key={tuition._id}
+                className="flex items-center justify-between gap-3 rounded-lg border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {tuition.title}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {tuition.subject} · {tuition.classLevel} · {tuition.mode} ·{" "}
+                    {tuition.tutorName || "Tutor"}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold">
+                  ৳{tuition.monthlyFee.toLocaleString()}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    /mo
+                  </span>
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

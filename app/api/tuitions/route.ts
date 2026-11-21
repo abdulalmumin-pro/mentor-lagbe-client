@@ -1,9 +1,34 @@
 import { apiError, getSessionUser } from "@/lib/api"
-import { serializeDoc, tuitions } from "@/lib/db"
+import { findUserContacts, serializeDoc, tuitions } from "@/lib/db"
 import { parseTuitionInput } from "@/lib/tuition"
 
-/** GET /api/tuitions — the signed-in tutor's own posts. */
-export async function GET() {
+/**
+ * GET /api/tuitions
+ * - `?scope=approved` → every approved, active post (public, used by Browse
+ *   Tuitions so students *and* tutors can see the whole marketplace).
+ * - default → the signed-in tutor's own posts (My Tuitions / dashboard).
+ */
+export async function GET(req: Request) {
+  const scope = new URL(req.url).searchParams.get("scope")
+
+  if (scope === "approved") {
+    const list = await (await tuitions())
+      .find({ approvalStatus: "approved", status: "active" })
+      .sort({ createdAt: -1 })
+      .toArray()
+
+    // Fill in the tutor's name for older posts that didn't snapshot it.
+    const contacts = await findUserContacts(list.map((t) => t.tutorId))
+
+    return Response.json({
+      tuitions: list.map((tuition) => ({
+        ...serializeDoc(tuition),
+        tutorName:
+          tuition.tutorName || contacts.get(tuition.tutorId)?.name || "Tutor",
+      })),
+    })
+  }
+
   const user = await getSessionUser()
   if (!user) return apiError("Unauthorized", 401)
 

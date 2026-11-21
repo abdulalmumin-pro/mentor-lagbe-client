@@ -31,7 +31,7 @@ export default function SavedTuitionsPage() {
             Browse tuitions and save the ones you want to revisit.
           </p>
           <Button
-            render={<Link href="/browse-tutions" />}
+            render={<Link href="/browse-tuitions" />}
             nativeButton={false}
           >
             <Search />

@@ -41,7 +41,7 @@ const quickActions = [
     description: "Your bookmarked subjects",
   },
   {
-    href: "/browse-tutions",
+    href: "/browse-tuitions",
     icon: Compass,
     title: "Explore Mentors",
     description: "Find experienced tutors",
@@ -134,7 +134,7 @@ export default function StudentOverviewPage() {
           </p>
         </div>
         <Button
-          render={<Link href="/browse-tutions" />}
+          render={<Link href="/browse-tuitions" />}
           nativeButton={false}
         >
           <Search />

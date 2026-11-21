@@ -5,6 +5,18 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter"
 const client = new MongoClient(process.env.BETTER_AUTH_DB_URI as string)
 const db = client.db("mentor-lagbe-db")
 
+/**
+ * Roles a person may pick for themselves at sign-up.
+ * `admin` is deliberately NOT here: admins are created manually
+ * (directly in MongoDB or via a seed script), never through sign-up.
+ */
+const SIGNUP_ROLES = ["student", "tutor"] as const
+type SignupRole = (typeof SIGNUP_ROLES)[number]
+
+function isSignupRole(value: unknown): value is SignupRole {
+  return (SIGNUP_ROLES as readonly string[]).includes(value as string)
+}
+
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
 
@@ -30,6 +42,8 @@ export const auth = betterAuth({
         required: true,
         input: true,
         defaultValue: "student",
+        // Every role that exists in the system. Sign-up restrictions are
+        // enforced in `databaseHooks.user.create.before` below.
         validators: [
           {
             validate: (value: unknown) =>
@@ -68,18 +82,31 @@ export const auth = betterAuth({
     user: {
       create: {
         /**
-         * Google OAuth can't carry form fields across the redirect, so the
-         * sign-up page stores the picked role in a short-lived cookie first.
-         * We only trust it for the OAuth callback — email/password signups
-         * already send `role` in the request body.
+         * Single gatekeeper for the role of every NEW account.
+         *
+         * 1. Google OAuth can't carry form fields across the redirect, so the
+         *    sign-up page stores the picked role in a short-lived cookie.
+         *    We only trust it for the OAuth callback, and only for
+         *    student/tutor.
+         * 2. Email/password sign-ups send `role` in the request body, which
+         *    anyone can tamper with. Anything other than student/tutor
+         *    (including "admin") is forced back to "student".
          */
-        before: async (_user, ctx) => {
-          const cookie = ctx?.request?.headers.get("cookie") ?? ""
-          const match = cookie.match(
-            /(?:^|;\s*)ml_signup_role=(student|tutor|admin)(?:;|$)/
-          )
-          if (match && ctx?.path?.includes("callback")) {
-            return { data: { role: match[1] } }
+        before: async (user, ctx) => {
+          // (1) Google OAuth callback -> role from cookie
+          if (ctx?.path?.includes("callback")) {
+            const cookie = ctx.request?.headers.get("cookie") ?? ""
+            const match = cookie.match(
+              /(?:^|;\s*)ml_signup_role=(student|tutor)(?:;|$)/
+            )
+            const role: SignupRole = match ? (match[1] as SignupRole) : "student"
+            return { data: { ...user, role } }
+          }
+
+          // (2) Email/password (or anything else) -> never allow admin
+          const requested = (user as { role?: unknown }).role
+          if (!isSignupRole(requested)) {
+            return { data: { ...user, role: "student" } }
           }
         },
       },

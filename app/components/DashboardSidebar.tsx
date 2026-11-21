@@ -5,6 +5,7 @@ import {
   Bookmark,
   BookOpen,
   ClipboardList,
+  Compass,
   CreditCard,
   FilePlus,
   LayoutDashboard,
@@ -82,6 +83,12 @@ const menuItemsByRole: Record<UserRole, MenuItem[]> = {
       name: "My Tuitions",
       url: "/dashboard/tutor/my-tuitions",
       icon: BookOpen,
+    },
+    {
+      id: "browse-tuitions",
+      name: "Browse Tuitions",
+      url: "/browse-tuitions",
+      icon: Compass,
     },
     {
       id: "applicants",

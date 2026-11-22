@@ -85,7 +85,7 @@ export function Hero() {
             className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
             <Button
-              render={<Link href="/tuitions" />}
+              render={<Link href="/browse-tuitions" />}
               nativeButton={false}
               size="lg"
               className="w-full sm:w-auto"

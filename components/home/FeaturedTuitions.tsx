@@ -42,19 +42,13 @@ export default function FeaturedTuitions({
             </p>
           </div>
 
-          <Button
-            asChild
-            variant="outline"
-            className="w-fit shrink-0 whitespace-nowrap"
+          <Link
+            href="/browse-tuitions"
+            className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent hover:text-accent-foreground"
           >
-            <Link
-              href="/browse-tuitions"
-              className="flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <span>Browse All Tuitions</span>
-              <ArrowRight className="size-4 shrink-0" />
-            </Link>
-          </Button>
+            Browse All Tuitions
+            <ArrowRight className="size-4 shrink-0" />
+          </Link>
         </div>
 
         {/* Tuition Cards */}
@@ -112,12 +106,13 @@ export default function FeaturedTuitions({
                       </p>
                     </div>
 
-                    <Button asChild size="sm">
-                      <Link href="/browse-tuitions">
-                        Explore
-                        <ArrowRight className="ml-2 size-4" />
-                      </Link>
-                    </Button>
+                    <Link
+                      href="/browse-tuitions"
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Explore
+                      <ArrowRight className="size-4" />
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -133,24 +128,25 @@ export default function FeaturedTuitions({
               New tuition opportunities will appear here.
             </p>
 
-            <Button asChild variant="outline" className="mt-4">
-              <Link href="/browse-tuitions">Browse Tuitions</Link>
-            </Button>
+            <Link
+              href="/browse-tuitions"
+              className="mt-4 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+            >
+              Browse Tuitions
+            </Link>
           </div>
         )}
 
         {/* Bottom Browse Button */}
         {featuredTuitions.length > 0 && (
           <div className="mt-8 flex justify-center">
-            <Button asChild size="lg" className="whitespace-nowrap">
-              <Link
-                href="/browse-tuitions"
-                className="flex items-center gap-2 whitespace-nowrap"
-              >
-                View All Tuitions
-                <ArrowRight className="size-4 shrink-0" />
-              </Link>
-            </Button>
+            <Link
+              href="/browse-tuitions"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              View All Tuitions
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
         )}
       </div>

@@ -63,6 +63,12 @@ export default function BrowseTuitionsPage() {
   const [note, setNote] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
 
+  // Pre-fill the search from ?subject=math (set by the homepage subject cards).
+  React.useEffect(() => {
+    const subject = new URLSearchParams(window.location.search).get("subject")
+    if (subject) setQuery(subject)
+  }, [])
+
   React.useEffect(() => {
     let cancelled = false
 

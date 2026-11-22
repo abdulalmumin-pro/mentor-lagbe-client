@@ -188,7 +188,7 @@ export function SubjectsStatsSection({
             {subjects.map(({ name, slug, tutors, icon: Icon }) => (
               <Link
                 key={slug}
-                href={`/tuitions?subject=${encodeURIComponent(slug)}`}
+                href={`/browse-tuitions?subject=${encodeURIComponent(slug)}`}
                 className="group flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">

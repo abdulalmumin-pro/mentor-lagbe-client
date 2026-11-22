@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { backendFetch } from "@/lib/backend"
 
 type Audience = "tutor" | "student"
 
@@ -36,17 +37,22 @@ type PricingSectionProps = {
   onSubscribe?: (audience: Audience) => Promise<string>
 }
 
+// The backend decides the price from the signed-in user's role; `audience`
+// is only sent for reference.
 async function defaultCheckout(audience: Audience): Promise<string> {
-  const res = await fetch("/api/stripe/checkout", {
+  const res = await backendFetch("/stripe/checkout", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ audience }),
   })
+  const json = (await res.json().catch(() => null)) as {
+    url?: string
+    error?: string
+  } | null
+
   if (res.status === 401) throw new Error("Please sign in to subscribe.")
-  if (!res.ok) throw new Error("Could not start checkout.")
-  const { url } = (await res.json()) as { url?: string }
-  if (!url) throw new Error("Checkout URL missing.")
-  return url
+  if (!res.ok) throw new Error(json?.error || "Could not start checkout.")
+  if (!json?.url) throw new Error("Checkout URL missing.")
+  return json.url
 }
 
 export function PricingSection({

@@ -1,3 +1,6 @@
+"use client"
+
+import * as React from "react"
 import Link from "next/link"
 import { ArrowRight, BookOpen, GraduationCap, MapPin } from "lucide-react"
 
@@ -10,15 +13,50 @@ interface FeaturedTuitionsProps {
   tuitions?: TuitionDoc[]
 }
 
+/** Approved, and active (supports both `isActive` and the older `status`). */
+function isOpenForApplications(tuition: TuitionDoc) {
+  const { isActive, status } = tuition as TuitionDoc & { isActive?: boolean }
+  const active =
+    typeof isActive === "boolean"
+      ? isActive
+      : typeof status === "string"
+        ? status === "active"
+        : true
+  return tuition.approvalStatus === "approved" && active
+}
+
 export default function FeaturedTuitions({
-  tuitions = [],
+  tuitions: initialTuitions = [],
 }: FeaturedTuitionsProps) {
+  const [fetched, setFetched] = React.useState<TuitionDoc[]>([])
+  const hasInitial = initialTuitions.length > 0
+
+  // If the parent page did not pass any tuitions, load them like the
+  // Browse Tuitions page does.
+  React.useEffect(() => {
+    if (hasInitial) return
+    let cancelled = false
+
+    async function load() {
+      try {
+        const res = await fetch("/api/tuitions?scope=approved")
+        if (!res.ok) return
+        const json = await res.json()
+        if (!cancelled) setFetched(json.tuitions ?? [])
+      } catch {
+        // Keep the empty state if loading fails.
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [hasInitial])
+
   // Show only approved and active tuitions
-  const featuredTuitions = (tuitions ?? [])
-    .filter(
-      (tuition) =>
-        tuition.approvalStatus === "approved" && tuition.status === "active"
-    )
+  const featuredTuitions = (hasInitial ? initialTuitions : fetched)
+    .filter(isOpenForApplications)
     .slice(0, 6)
 
   return (
@@ -59,6 +97,15 @@ export default function FeaturedTuitions({
                 key={tuition._id}
                 className="group overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
+                {tuition.bannerImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={tuition.bannerImage}
+                    alt={tuition.title}
+                    className="h-36 w-full object-cover"
+                  />
+                )}
+
                 <CardHeader className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">

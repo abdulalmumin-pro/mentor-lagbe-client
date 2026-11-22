@@ -118,6 +118,29 @@ export async function findUserContacts(
   return map
 }
 
+/** Looks up an account by email (case-insensitive fallback for old rows). */
+export async function findUserByEmail(email: string): Promise<AppUser | null> {
+  if (!email) return null
+  const collection = await users()
+  return (
+    (await collection.findOne({ email })) ??
+    (await collection.findOne({ email: email.toLowerCase() }))
+  )
+}
+
+/** The public tutor card data for a tuition details page. */
+export async function findTutorSummaryByEmail(email: string) {
+  const user = await findUserByEmail(email)
+  if (!user) return null
+
+  return {
+    name: user.name,
+    image: user.image ?? null,
+    bio: user.bio ?? "",
+    plan: user.plan ?? "free",
+  }
+}
+
 /** Tuition as returned by the API (`_id` is a string). */
 export type TuitionDoc = Tuition & { _id: string }
 
@@ -131,6 +154,8 @@ export type AppUser = {
   role?: string
   plan?: string
   image?: string | null
+  bio?: string | null
+  phone?: string | null
   createdAt?: Date
 }
 

@@ -17,6 +17,11 @@ export async function GET() {
     const contact = contacts.get(tuition.tutorId)
     return {
       ...serializeDoc(tuition),
+      // Keep the Active badge working for docs written with `isActive`.
+      status:
+        tuition.status ??
+        (tuition.isActive === false ? "closed" : "active"),
+      isActive: tuition.isActive ?? tuition.status !== "closed",
       tutorName: tuition.tutorName || contact?.name || "Tutor",
       tutorEmail: tuition.tutorEmail || contact?.email || "",
     }

@@ -6,8 +6,29 @@ import {
   findUserContacts,
   serializeDoc,
   tuitions,
+  type Application,
   type Tuition,
 } from "@/lib/db"
+
+/**
+ * Older documents written by the Express backend use `studentNote`/`appliedAt`
+ * instead of `note`/`createdAt`. Normalise both so every dashboard works.
+ */
+function normalizeApplication(application: Application & { _id?: unknown }) {
+  const note = application.note ?? application.studentNote ?? ""
+  const createdAt = application.createdAt ?? application.appliedAt ?? new Date()
+  const updatedAt = application.updatedAt ?? createdAt
+
+  return {
+    ...serializeDoc(application),
+    note,
+    studentNote: application.studentNote ?? note,
+    subject: application.subject ?? "",
+    createdAt,
+    appliedAt: application.appliedAt ?? createdAt,
+    updatedAt,
+  }
+}
 
 /**
  * GET /api/applications
@@ -22,23 +43,51 @@ export async function GET() {
   const collection = await applications()
 
   if (user.role === "tutor") {
+    // Match by id, or by email for rows created by the Express backend.
     const list = await collection
-      .find({ tutorId: user.id })
+      .find({
+        $or: [{ tutorId: user.id }, { tutorEmail: user.email }],
+      })
       .sort({ createdAt: -1 })
       .toArray()
 
-    return Response.json({ applications: list.map(serializeDoc) })
+    const tuitionIds = [...new Set(list.map((a) => a.tuitionId))].filter((id) =>
+      ObjectId.isValid(id)
+    )
+
+    const tuitionMap = new Map<string, Tuition>()
+    if (tuitionIds.length > 0) {
+      const docs = await (await tuitions())
+        .find({ _id: { $in: tuitionIds.map((id) => new ObjectId(id)) } })
+        .toArray()
+      for (const doc of docs) tuitionMap.set(String(doc._id), doc)
+    }
+
+    return Response.json({
+      applications: list.map((application) => {
+        const tuition = tuitionMap.get(application.tuitionId)
+        return {
+          ...normalizeApplication(application),
+          tuitionTitle:
+            application.tuitionTitle || tuition?.title || "Untitled tuition",
+          subject: application.subject || tuition?.subject || "",
+          monthlyFee: application.monthlyFee ?? tuition?.monthlyFee ?? 0,
+        }
+      }),
+    })
   }
 
   const list = await collection
-    .find({ studentId: user.id })
+    .find({
+      $or: [{ studentId: user.id }, { studentEmail: user.email }],
+    })
     .sort({ createdAt: -1 })
     .toArray()
 
   // Join tuition details (fee / title) and tutor contact for the student view.
-  const tuitionIds = [
-    ...new Set(list.map((a) => a.tuitionId)),
-  ].filter((id) => ObjectId.isValid(id))
+  const tuitionIds = [...new Set(list.map((a) => a.tuitionId))].filter((id) =>
+    ObjectId.isValid(id)
+  )
 
   const tuitionMap = new Map<string, Tuition>()
   if (tuitionIds.length > 0) {
@@ -55,9 +104,10 @@ export async function GET() {
     const contact = contacts.get(application.tutorId)
 
     return {
-      ...serializeDoc(application),
+      ...normalizeApplication(application),
       tuitionTitle:
         application.tuitionTitle || tuition?.title || "Untitled tuition",
+      subject: application.subject || tuition?.subject || "",
       monthlyFee: application.monthlyFee ?? tuition?.monthlyFee ?? 0,
       tutorName:
         application.tutorName ||
@@ -73,7 +123,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/applications — a student applies to an approved, active tuition.
+ * POST /api/applications — a student applies to an approved, open tuition.
  * Body: `{ tuitionId, preferredSchedule, note? }`
  */
 export async function POST(req: Request) {
@@ -87,6 +137,7 @@ export async function POST(req: Request) {
     tuitionId?: unknown
     preferredSchedule?: unknown
     note?: unknown
+    studentNote?: unknown
   } | null
 
   const tuitionId = typeof body?.tuitionId === "string" ? body.tuitionId : ""
@@ -94,7 +145,12 @@ export async function POST(req: Request) {
     typeof body?.preferredSchedule === "string"
       ? body.preferredSchedule.trim()
       : ""
-  const note = typeof body?.note === "string" ? body.note.trim() : ""
+  const note =
+    typeof body?.note === "string"
+      ? body.note.trim()
+      : typeof body?.studentNote === "string"
+        ? body.studentNote.trim()
+        : ""
 
   if (!ObjectId.isValid(tuitionId)) return apiError("Invalid tuition id.")
   if (!preferredSchedule) return apiError("Preferred schedule is required.")
@@ -103,14 +159,19 @@ export async function POST(req: Request) {
     _id: new ObjectId(tuitionId),
   })
   if (!tuition) return apiError("Tuition not found.", 404)
-  if (tuition.approvalStatus !== "approved" || tuition.status !== "active") {
+
+  const active =
+    typeof tuition.isActive === "boolean"
+      ? tuition.isActive
+      : tuition.status !== "closed"
+  if (tuition.approvalStatus !== "approved" || !active) {
     return apiError("This tuition is not open for applications.", 400)
   }
 
   const collection = await applications()
   const alreadyApplied = await collection.findOne({
     tuitionId,
-    studentId: user.id,
+    $or: [{ studentId: user.id }, { studentEmail: user.email }],
   })
   if (alreadyApplied) {
     return apiError("You have already applied to this tuition.", 409)
@@ -126,6 +187,7 @@ export async function POST(req: Request) {
   const doc = {
     tuitionId,
     tuitionTitle: tuition.title,
+    subject: tuition.subject,
     tutorId: tuition.tutorId,
     tutorName: tuition.tutorName || tutorContact?.name || "",
     tutorEmail: tuition.tutorEmail || tutorContact?.email || "",
@@ -135,9 +197,12 @@ export async function POST(req: Request) {
     studentEmail: user.email,
     studentPhone: (user as { phone?: string | null }).phone ?? "",
     preferredSchedule,
+    // Write both spellings so the Express backend and this app agree.
     note,
+    studentNote: note,
     status: "pending" as const,
     createdAt: now,
+    appliedAt: now,
     updatedAt: now,
   }
 

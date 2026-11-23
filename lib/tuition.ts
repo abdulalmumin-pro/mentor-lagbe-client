@@ -13,6 +13,28 @@ export const CLASS_LEVELS = [
 
 export const TUITION_MODES: TuitionMode[] = ["Online", "Offline", "Both"]
 
+/** Free-plan limits from the project spec. */
+export const FREE_TUITION_LIMIT = 2
+export const FREE_BOOKMARK_LIMIT = 5
+
+type OpenableTuition = {
+  approvalStatus?: string
+  status?: string
+  isActive?: boolean
+}
+
+/**
+ * A tuition is publicly visible only when an admin approved it and the tutor
+ * hasn't closed it. Supports both `isActive` (Express/seed) and `status`.
+ */
+export function isTuitionOpen(tuition: OpenableTuition) {
+  const active =
+    typeof tuition.isActive === "boolean"
+      ? tuition.isActive
+      : tuition.status !== "closed"
+  return tuition.approvalStatus === "approved" && active
+}
+
 /** Cleaned values ready to store. */
 export type TuitionInput = {
   title: string

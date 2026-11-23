@@ -41,6 +41,87 @@ async function getJwt() {
   return json.token
 }
 
+type ApplicationPayload = {
+  tuitionId: string
+  tuitionTitle: string
+  subject: string
+  monthlyFee: number
+  tutorEmail: string
+  studentName: string
+  studentEmail: string
+  studentPhone: string
+  preferredSchedule: string
+  studentNote: string
+}
+
+/**
+ * Has this student already applied? Prefers the Express endpoint but falls
+ * back to the Next.js route handler when the backend doesn't expose it.
+ */
+async function checkAlreadyApplied(tuitionId: string): Promise<boolean> {
+  try {
+    const token = await getJwt()
+    const res = await fetch(
+      `${API_BASE_URL}/applications/check?tuitionId=${encodeURIComponent(tuitionId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }
+    )
+    if (res.ok) {
+      const json = (await res.json()) as { applied?: boolean }
+      return Boolean(json.applied)
+    }
+    if (res.status !== 404 && res.status !== 405) return false
+  } catch {
+    // Express is unreachable — try the Next.js route below.
+  }
+
+  try {
+    const res = await fetch("/api/applications", { cache: "no-store" })
+    if (!res.ok) return false
+    const json = (await res.json().catch(() => null)) as {
+      applications?: { tuitionId?: string }[]
+    } | null
+    return (json?.applications ?? []).some(
+      (application) => application.tuitionId === tuitionId
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Submit the application through the Express backend, or through the Next.js
+ * route handler when the backend route is missing/unreachable.
+ */
+async function postApplication(payload: ApplicationPayload): Promise<Response> {
+  try {
+    const token = await getJwt()
+    const res = await fetch(`${API_BASE_URL}/applications`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+    if (res.status !== 404 && res.status !== 405) return res
+  } catch {
+    // Express is unreachable — fall through to the Next.js route.
+  }
+
+  return fetch("/api/applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tuitionId: payload.tuitionId,
+      preferredSchedule: payload.preferredSchedule,
+      note: payload.studentNote,
+    }),
+  })
+}
+
 type FieldErrors = {
   phone?: string
   schedule?: string
@@ -71,18 +152,8 @@ export function ApplyPanel({
     async function check() {
       setChecking(true)
       try {
-        const token = await getJwt()
-        const res = await fetch(
-          `${API_BASE_URL}/applications/check?tuitionId=${encodeURIComponent(tuition._id)}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store",
-          }
-        )
-        if (!res.ok) return
-
-        const json = (await res.json()) as { applied?: boolean }
-        if (!cancelled) setApplied(Boolean(json.applied))
+        const alreadyApplied = await checkAlreadyApplied(tuition._id)
+        if (!cancelled) setApplied(alreadyApplied)
       } catch {
         // POST still re-checks duplicates on the server.
       } finally {
@@ -117,25 +188,17 @@ export function ApplyPanel({
 
     setSubmitting(true)
     try {
-      const token = await getJwt()
-      const res = await fetch(`${API_BASE_URL}/applications`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          tuitionId: tuition._id,
-          tuitionTitle: tuition.title,
-          subject: tuition.subject,
-          monthlyFee: tuition.monthlyFee,
-          tutorEmail: tuition.tutorEmail ?? "",
-          studentName: viewer.name,
-          studentEmail: viewer.email,
-          studentPhone: phone.trim(),
-          preferredSchedule: schedule.trim(),
-          studentNote: note.trim(),
-        }),
+      const res = await postApplication({
+        tuitionId: tuition._id,
+        tuitionTitle: tuition.title,
+        subject: tuition.subject,
+        monthlyFee: tuition.monthlyFee,
+        tutorEmail: tuition.tutorEmail ?? "",
+        studentName: viewer.name,
+        studentEmail: viewer.email,
+        studentPhone: phone.trim(),
+        preferredSchedule: schedule.trim(),
+        studentNote: note.trim(),
       })
 
       const json = (await res.json().catch(() => null)) as {

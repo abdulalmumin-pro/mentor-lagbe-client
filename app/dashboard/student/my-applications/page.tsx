@@ -108,7 +108,7 @@ export default function MyApplicationsPage() {
           </p>
         </div>
         <Button
-          render={<Link href="/browse-tuitions" />}
+          render={<Link href="/tuitions" />}
           nativeButton={false}
         >
           <Search />
@@ -135,7 +135,7 @@ export default function MyApplicationsPage() {
               journey.
             </p>
             <Button
-              render={<Link href="/browse-tuitions" />}
+              render={<Link href="/tuitions" />}
               nativeButton={false}
             >
               <Search />

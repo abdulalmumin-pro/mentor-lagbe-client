@@ -102,8 +102,10 @@ function useCountUp(target: number, decimals = 0, duration = 1400) {
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (reduce) {
-      setValue(target)
-      return
+      // Jump straight to the final value (inside a frame so it isn't a
+      // synchronous setState in the effect body).
+      const frame = requestAnimationFrame(() => setValue(target))
+      return () => cancelAnimationFrame(frame)
     }
 
     let raf = 0
@@ -188,7 +190,7 @@ export function SubjectsStatsSection({
             {subjects.map(({ name, slug, tutors, icon: Icon }) => (
               <Link
                 key={slug}
-                href={`/browse-tuitions?subject=${encodeURIComponent(slug)}`}
+                href={`/tuitions?q=${encodeURIComponent(slug)}`}
                 className="group flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">

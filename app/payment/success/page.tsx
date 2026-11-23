@@ -16,18 +16,19 @@ export default function PaymentSuccessPage() {
   const [message, setMessage] = React.useState("")
 
   React.useEffect(() => {
-    const sessionId = new URLSearchParams(window.location.search).get(
-      "session_id"
-    )
-    if (!sessionId) {
-      setStatus("error")
-      setMessage("Payment session not found.")
-      return
-    }
-
     let cancelled = false
 
     const verify = async () => {
+      const sessionId = new URLSearchParams(window.location.search).get(
+        "session_id"
+      )
+      if (!sessionId) {
+        if (cancelled) return
+        setStatus("error")
+        setMessage("Payment session not found.")
+        return
+      }
+
       try {
         const res = await backendFetch(
           `/stripe/verify?session_id=${encodeURIComponent(sessionId)}`

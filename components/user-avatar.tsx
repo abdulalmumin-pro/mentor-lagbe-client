@@ -25,10 +25,9 @@ type UserAvatarProps = {
 }
 
 export function UserAvatar({ name, image, className }: UserAvatarProps) {
-  const [failed, setFailed] = React.useState(false)
-
-  // Reset if the image URL changes (e.g. user updates their profile)
-  React.useEffect(() => setFailed(false), [image])
+  // Track which URL failed instead of resetting state in an effect.
+  const [failedImage, setFailedImage] = React.useState<string | null>(null)
+  const failed = Boolean(image) && failedImage === image
 
   if (image && !failed) {
     return (
@@ -37,7 +36,7 @@ export function UserAvatar({ name, image, className }: UserAvatarProps) {
         src={image}
         alt={name}
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
+        onError={() => setFailedImage(image)}
         className={cn(
           "size-8 shrink-0 rounded-full border object-cover",
           className

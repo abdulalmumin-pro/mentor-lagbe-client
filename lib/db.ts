@@ -25,6 +25,11 @@ export type Tuition = {
   approvalStatus: ApprovalStatus
   /** Tutor can open/close a post. */
   status: TuitionStatus
+  /**
+   * Boolean mirror of `status` used by the Express backend / seed data.
+   * A post is closed when either `status === "closed"` or `isActive === false`.
+   */
+  isActive?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -43,9 +48,14 @@ export type Application = {
   studentEmail: string
   studentPhone?: string
   preferredSchedule: string
+  /** Current field name. `studentNote` is the Express/seed alias. */
   note?: string
+  studentNote?: string
+  subject?: string
   status: ApplicationStatus
   createdAt: Date
+  /** Express/seed alias for `createdAt`. */
+  appliedAt?: Date
   updatedAt: Date
 }
 
@@ -144,6 +154,13 @@ export async function findTutorSummaryByEmail(email: string) {
 /** Tuition as returned by the API (`_id` is a string). */
 export type TuitionDoc = Tuition & { _id: string }
 
+/** Reads one tuition straight from MongoDB (used as an Express fallback). */
+export async function findTuitionById(id: string): Promise<TuitionDoc | null> {
+  if (!ObjectId.isValid(id)) return null
+  const doc = await (await tuitions()).findOne({ _id: new ObjectId(id) })
+  return doc ? serializeDoc(doc) : null
+}
+
 /** Application as returned by the API (`_id` is a string). */
 export type ApplicationDoc = Application & { _id: string }
 
@@ -156,6 +173,8 @@ export type AppUser = {
   image?: string | null
   bio?: string | null
   phone?: string | null
+  /** Saved tuition ids (stored on the user doc to stay within 4 collections). */
+  bookmarks?: string[]
   createdAt?: Date
 }
 
@@ -163,7 +182,7 @@ export type AppUserDoc = AppUser & { _id: string }
 
 /** A Stripe subscription payment record (written by the Stripe webhook). */
 export type Payment = {
-  userId: string
+  userId?: string
   userName?: string
   userEmail?: string
   userRole?: string
@@ -172,8 +191,20 @@ export type Payment = {
   amount: number
   currency?: string
   transactionId: string
-  status?: "succeeded" | "pending" | "failed"
-  paymentDate: Date
+  stripeSessionId?: string
+  stripeCustomerId?: string
+  stripeSubscriptionId?: string
+  /** Express/webhook aliases for the plan + payer email. */
+  plan?: string
+  audience?: string
+  email?: string
+  status?: "succeeded" | "pending" | "failed" | "paid"
+  /** Express/webhook alias for `status`. */
+  paymentStatus?: "paid" | "succeeded" | "pending" | "failed"
+  /** Current field name. */
+  paymentDate?: Date
+  /** Express/webhook alias for `paymentDate`. */
+  paidAt?: Date
   createdAt?: Date
 }
 

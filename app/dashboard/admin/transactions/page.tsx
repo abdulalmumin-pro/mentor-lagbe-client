@@ -152,7 +152,7 @@ export default function AdminTransactionsPage() {
                       {payment.transactionId}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(payment.paymentDate)}
+                      {payment.paymentDate ? formatDate(payment.paymentDate) : "—"}
                     </td>
                   </tr>
                 ))}

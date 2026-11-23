@@ -29,7 +29,11 @@ export async function PATCH(req: Request, { params }: RouteContext) {
   }
 
   const updated = await (await applications()).findOneAndUpdate(
-    { _id: new ObjectId(id), tutorId: user.id },
+    {
+      _id: new ObjectId(id),
+      // Fall back to email for applications created by the Express backend.
+      $or: [{ tutorId: user.id }, { tutorEmail: user.email }],
+    },
     { $set: { status, updatedAt: new Date() } },
     { returnDocument: "after" }
   )
@@ -54,7 +58,10 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   const application = await collection.findOne({ _id: new ObjectId(id) })
 
   if (!application) return apiError("Application not found.", 404)
-  if (application.studentId !== user.id) {
+  const ownsApplication =
+    application.studentId === user.id ||
+    application.studentEmail === user.email
+  if (!ownsApplication) {
     return apiError("You can only cancel your own application.", 403)
   }
   if (application.status !== "pending") {

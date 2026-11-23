@@ -59,7 +59,11 @@ export default function MyTuitionsPage() {
   }, [])
 
   async function toggleStatus(tuition: TuitionDoc) {
-    const next = tuition.status === "active" ? "closed" : "active"
+    const isActive =
+      typeof tuition.isActive === "boolean"
+        ? tuition.isActive
+        : tuition.status === "active"
+    const next = isActive ? "closed" : "active"
     setBusyId(tuition._id)
     try {
       const res = await fetch(`/api/tuitions/${tuition._id}`, {
@@ -231,7 +235,11 @@ export default function MyTuitionsPage() {
                       onClick={() => toggleStatus(tuition)}
                     >
                       {busy ? <Loader2 className="animate-spin" /> : <Power />}
-                      {tuition.status === "active" ? "Close" : "Reopen"}
+                      {tuition.isActive === false ||
+                      (tuition.isActive === undefined &&
+                        tuition.status !== "active")
+                        ? "Reopen"
+                        : "Close"}
                     </Button>
                     <Button
                       variant="destructive"

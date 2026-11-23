@@ -7,12 +7,14 @@ import { ArrowRight, GraduationCap, ShieldCheck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-// TODO: replace with real numbers (or fetch them from your database).
-const stats = [
+// Fallback numbers shown until the homepage passes real platform stats.
+const DEFAULT_STATS = [
   { value: "500+", label: "Verified Mentors" },
   { value: "1,200+", label: "Tuitions Posted" },
   { value: "64", label: "Districts Covered" },
 ];
+
+export type HeroStat = { value: string; label: string };
 
 const highlights = [
   { icon: Search, text: "Easy search" },
@@ -20,7 +22,7 @@ const highlights = [
   { icon: GraduationCap, text: "Qualified mentors" },
 ];
 
-export function Hero() {
+export function Hero({ stats = DEFAULT_STATS }: { stats?: HeroStat[] }) {
   const reduce = useReducedMotion();
 
   // Staggered fade-up animation; disabled if the user prefers reduced motion.
@@ -85,7 +87,7 @@ export function Hero() {
             className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
             <Button
-              render={<Link href="/browse-tuitions" />}
+              render={<Link href="/tuitions" />}
               nativeButton={false}
               size="lg"
               className="w-full sm:w-auto"

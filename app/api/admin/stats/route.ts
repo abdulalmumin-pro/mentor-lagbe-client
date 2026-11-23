@@ -26,11 +26,17 @@ export async function GET() {
 
   const paymentDocs = await (await payments())
     .find({})
-    .project({ amount: 1, status: 1 })
+    .project({ amount: 1, status: 1, paymentStatus: 1 })
     .toArray()
 
   const totalRevenue = paymentDocs
-    .filter((p) => p.status !== "failed")
+    .filter(
+      (p) =>
+        p.status !== "failed" &&
+        p.paymentStatus !== "failed" &&
+        p.status !== "pending" &&
+        p.paymentStatus !== "pending"
+    )
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
 
   return Response.json({

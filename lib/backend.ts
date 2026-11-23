@@ -3,9 +3,10 @@
  * The backend verifies this token with Better Auth's /api/auth/jwks.
  */
 
-export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000"
-).replace(/\/+$/, "")
+import { API_BASE_URL } from "./api-url"
+
+/** Single source of truth for the Express base URL (`lib/api-url.ts`). */
+export const API_URL = API_BASE_URL
 
 /** Gets a short-lived JWT for the signed-in user from Better Auth. */
 export async function getAuthToken(): Promise<string> {

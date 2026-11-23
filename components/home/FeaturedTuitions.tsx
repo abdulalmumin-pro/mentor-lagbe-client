@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowRight, BookOpen, GraduationCap, MapPin } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import type { TuitionDoc } from "@/lib/db"
@@ -81,7 +80,7 @@ export default function FeaturedTuitions({
           </div>
 
           <Link
-            href="/browse-tuitions"
+            href="/tuitions"
             className="inline-flex w-fit shrink-0 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             Browse All Tuitions
@@ -154,7 +153,7 @@ export default function FeaturedTuitions({
                     </div>
 
                     <Link
-                      href="/browse-tuitions"
+                      href={`/tuitions/${tuition._id}`}
                       className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       Explore
@@ -176,7 +175,7 @@ export default function FeaturedTuitions({
             </p>
 
             <Link
-              href="/browse-tuitions"
+              href="/tuitions"
               className="mt-4 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
             >
               Browse Tuitions
@@ -188,7 +187,7 @@ export default function FeaturedTuitions({
         {featuredTuitions.length > 0 && (
           <div className="mt-8 flex justify-center">
             <Link
-              href="/browse-tuitions"
+              href="/tuitions"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90"
             >
               View All Tuitions

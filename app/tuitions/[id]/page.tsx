@@ -14,6 +14,7 @@ import { notFound } from "next/navigation"
 import Footer from "@/components/Footer"
 import Navbar from "@/components/Navbar"
 import ApplyPanel from "@/components/tuition/apply-panel"
+import { BookmarkButton } from "@/components/tuition/bookmark-button"
 import TuitionBanner from "@/components/tuition/tuition-banner"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,30 +26,69 @@ import {
 import { UserAvatar } from "@/components/user-avatar"
 import { getSessionUser } from "@/lib/api"
 import { API_BASE_URL } from "@/lib/api-url"
-import { findTutorSummaryByEmail, findUserByEmail } from "@/lib/db"
+import {
+  findTuitionById,
+  findTutorSummaryByEmail,
+  findUserByEmail,
+} from "@/lib/db"
 import type { TuitionDetail, Viewer } from "@/lib/tuition-detail"
 
 export const metadata = {
   title: "Tuition Details | Mentor Lagbe",
 }
 
-async function getTuition(id: string): Promise<TuitionDetail | null> {
-  let res: Response
+/** Ask the Express backend first; it may be offline or not deployed yet. */
+async function getFromExpress(id: string): Promise<TuitionDetail | null> {
   try {
-    res = await fetch(`${API_BASE_URL}/tuitions/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${API_BASE_URL}/tuitions/${encodeURIComponent(id)}`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(4000),
     })
+    if (!res.ok) return null
+
+    const json = (await res.json().catch(() => null)) as {
+      tuition?: TuitionDetail
+    } | null
+    return json?.tuition ?? null
   } catch {
-    throw new Error("Could not reach the tuition service.")
+    return null
   }
+}
 
-  if (res.status === 400 || res.status === 404) return null
-  if (!res.ok) throw new Error("Could not load this tuition.")
+/** Fall back to MongoDB so the page works without the Express server. */
+async function getFromDatabase(id: string): Promise<TuitionDetail | null> {
+  try {
+    const tuition = await findTuitionById(id)
+    if (!tuition) return null
 
-  const json = (await res.json().catch(() => null)) as {
-    tuition?: TuitionDetail
-  } | null
-  return json?.tuition ?? null
+    return {
+      _id: tuition._id,
+      title: tuition.title,
+      subject: tuition.subject,
+      classLevel: tuition.classLevel,
+      mode: tuition.mode,
+      location: tuition.location,
+      monthlyFee: tuition.monthlyFee,
+      daysPerWeek: tuition.daysPerWeek,
+      bannerImage: tuition.bannerImage ?? null,
+      description: tuition.description,
+      tutorName: tuition.tutorName,
+      tutorEmail: tuition.tutorEmail,
+      approvalStatus: tuition.approvalStatus,
+      isActive: tuition.isActive,
+      status: tuition.status,
+      createdAt:
+        tuition.createdAt instanceof Date
+          ? tuition.createdAt.toISOString()
+          : String(tuition.createdAt ?? ""),
+    }
+  } catch {
+    return null
+  }
+}
+
+async function getTuition(id: string): Promise<TuitionDetail | null> {
+  return (await getFromExpress(id)) ?? (await getFromDatabase(id))
 }
 
 function formatDate(value: string) {
@@ -113,10 +153,10 @@ export default async function TuitionDetailsPage({
   const isVerified = tutor?.plan === "pro"
 
   const sessionUser = await getSessionUser()
+  const dbUser = sessionUser ? await findUserByEmail(sessionUser.email) : null
   let viewer: Viewer | null = null
 
   if (sessionUser) {
-    const dbUser = await findUserByEmail(sessionUser.email)
     const rawRole = dbUser?.role ?? sessionUser.role ?? "student"
     const role: Viewer["role"] =
       rawRole === "admin" || rawRole === "tutor" ? rawRole : "student"
@@ -129,6 +169,9 @@ export default async function TuitionDetailsPage({
       phone: dbUser?.phone ?? null,
     }
   }
+
+  const savedByViewer =
+    viewer?.role === "student" && (dbUser?.bookmarks ?? []).includes(tuition._id)
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -238,6 +281,14 @@ export default async function TuitionDetailsPage({
           </div>
 
           <aside className="space-y-4">
+            {viewer?.role === "student" && (
+              <BookmarkButton
+                tuitionId={tuition._id}
+                saved={savedByViewer}
+                withLabel
+                className="w-full"
+              />
+            )}
             <ApplyPanel tuition={tuition} viewer={viewer} />
           </aside>
         </div>

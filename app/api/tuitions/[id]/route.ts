@@ -45,6 +45,8 @@ export async function PATCH(req: Request, { params }: RouteContext) {
   const status = (body as { status?: unknown }).status
   if (status === "active" || status === "closed") {
     update.status = status
+    // Keep the Express/seed boolean mirror in sync.
+    update.isActive = status === "active"
   }
 
   const isFormUpdate = ["title", "subject", "classLevel", "mode"].some(

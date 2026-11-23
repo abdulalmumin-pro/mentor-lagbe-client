@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { ApplicationDoc, TuitionDoc } from "@/lib/db"
+import { isTuitionOpen } from "@/lib/tuition"
 
 export default function TutorOverviewPage() {
   const { data: session } = useSession()
@@ -71,9 +72,7 @@ export default function TutorOverviewPage() {
     }
   }, [])
 
-  const activeApproved = tuitions.filter(
-    (t) => t.approvalStatus === "approved" && t.status === "active"
-  ).length
+  const activeApproved = tuitions.filter(isTuitionOpen).length
   const pendingCount = tuitions.filter(
     (t) => t.approvalStatus === "pending"
   ).length
@@ -212,7 +211,7 @@ export default function TutorOverviewPage() {
             <Button
               variant="outline"
               className="justify-start"
-              render={<Link href="/browse-tuitions" />}
+              render={<Link href="/tuitions" />}
               nativeButton={false}
             >
               <Compass />
@@ -255,7 +254,7 @@ export default function TutorOverviewPage() {
             <Button
               variant="outline"
               size="sm"
-              render={<Link href="/browse-tuitions" />}
+              render={<Link href="/tuitions" />}
               nativeButton={false}
             >
               <Compass />

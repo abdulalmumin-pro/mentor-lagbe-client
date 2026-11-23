@@ -87,7 +87,7 @@ const menuItemsByRole: Record<UserRole, MenuItem[]> = {
     {
       id: "browse-tuitions",
       name: "Browse Tuitions",
-      url: "/browse-tuitions",
+      url: "/tuitions",
       icon: Compass,
     },
     {

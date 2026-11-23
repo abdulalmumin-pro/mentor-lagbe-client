@@ -1,21 +1,78 @@
+import type { Filter } from "mongodb"
+
 import { apiError, getSessionUser } from "@/lib/api"
-import { findUserContacts, serializeDoc, tuitions } from "@/lib/db"
-import { parseTuitionInput } from "@/lib/tuition"
+import {
+  findUserContacts,
+  serializeDoc,
+  tuitions,
+  type Tuition,
+} from "@/lib/db"
+import { FREE_TUITION_LIMIT, parseTuitionInput } from "@/lib/tuition"
+
+const MAX_LIMIT = 24
+const DEFAULT_LIMIT = 9
+
+/** Escape user input before using it in a Mongo `$regex`. */
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function positiveInt(value: string | null, fallback: number) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
 
 /**
  * GET /api/tuitions
- * - `?scope=approved` → every approved, active post (public, used by Browse
- *   Tuitions so students *and* tutors can see the whole marketplace).
+ * - `?scope=approved` → public marketplace: every approved, open post.
+ *   Supports server-side search/filter/pagination:
+ *   `q`, `classLevel`, `mode`, `page`, `limit`.
  * - default → the signed-in tutor's own posts (My Tuitions / dashboard).
  */
 export async function GET(req: Request) {
-  const scope = new URL(req.url).searchParams.get("scope")
+  const { searchParams } = new URL(req.url)
+  const scope = searchParams.get("scope")
 
   if (scope === "approved") {
-    const list = await (await tuitions())
-      .find({ approvalStatus: "approved", status: "active" })
-      .sort({ createdAt: -1 })
-      .toArray()
+    const q = (searchParams.get("q") ?? "").trim()
+    const classLevel = (searchParams.get("classLevel") ?? "").trim()
+    const mode = (searchParams.get("mode") ?? "").trim()
+    const page = positiveInt(searchParams.get("page"), 1)
+    const limit = Math.min(
+      positiveInt(searchParams.get("limit"), DEFAULT_LIMIT),
+      MAX_LIMIT
+    )
+
+    // `$ne` also matches documents where the field is missing, so posts written
+    // by either this app (`status`) or the Express backend (`isActive`) work.
+    const filter: Filter<Tuition> = {
+      approvalStatus: "approved",
+      status: { $ne: "closed" },
+      isActive: { $ne: false },
+    }
+
+    if (classLevel) filter.classLevel = classLevel
+    if (mode) filter.mode = mode as Tuition["mode"]
+    if (q) {
+      const regex = new RegExp(escapeRegex(q), "i")
+      filter.$or = [
+        { title: regex },
+        { subject: regex },
+        { location: regex },
+        { tutorName: regex },
+      ]
+    }
+
+    const collection = await tuitions()
+    const [total, list] = await Promise.all([
+      collection.countDocuments(filter),
+      collection
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+    ])
 
     // Fill in the tutor's name for older posts that didn't snapshot it.
     const contacts = await findUserContacts(list.map((t) => t.tutorId))
@@ -26,6 +83,10 @@ export async function GET(req: Request) {
         tutorName:
           tuition.tutorName || contacts.get(tuition.tutorId)?.name || "Tutor",
       })),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     })
   }
 
@@ -42,7 +103,7 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/tuitions — create a tuition post.
- * New posts always start as `pending` (admin approval) and `active`.
+ * New posts always start as `pending` (admin approval) and active.
  * Free-plan tutors are capped at 2 posts; Pro is unlimited.
  */
 export async function POST(req: Request) {
@@ -61,9 +122,9 @@ export async function POST(req: Request) {
 
   if (plan !== "pro") {
     const existing = await collection.countDocuments({ tutorId: user.id })
-    if (existing >= 2) {
+    if (existing >= FREE_TUITION_LIMIT) {
       return apiError(
-        "Free plan allows up to 2 tuition posts. Upgrade to Pro for unlimited posts.",
+        `Free plan allows up to ${FREE_TUITION_LIMIT} tuition posts. Upgrade to Pro for unlimited posts.`,
         403
       )
     }
@@ -77,6 +138,7 @@ export async function POST(req: Request) {
     tutorEmail: user.email,
     approvalStatus: "pending" as const,
     status: "active" as const,
+    isActive: true,
     createdAt: now,
     updatedAt: now,
   }

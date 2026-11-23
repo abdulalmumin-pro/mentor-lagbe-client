@@ -17,7 +17,7 @@ export default function SignUpPage() {
     }
 
     try {
-      const { error } = await authClient.signUp.email({
+      const { data: result, error } = await authClient.signUp.email({
         name: data.name,
         email: data.email,
         password: data.password,
@@ -31,9 +31,11 @@ export default function SignUpPage() {
 
       toast.success("Account created successfully!");
 
-      router.push("/");
+      // Students and tutors land on their own dashboard right away.
+      const role =
+        (result?.user as { role?: string } | undefined)?.role ?? data.role;
+      router.push(role === "tutor" ? "/dashboard/tutor" : "/dashboard/student");
       router.refresh();
-
     } catch (err) {
       console.error("Sign-up error:", err);
       toast.error("Something went wrong. Please try again.");
